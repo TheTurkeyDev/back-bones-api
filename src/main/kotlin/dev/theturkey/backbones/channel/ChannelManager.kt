@@ -1,15 +1,10 @@
 package dev.theturkey.backbones.channel
 
 import dev.theturkey.backbones.DatabaseCore
-import dev.theturkey.backbones.DatabaseCore.channels
-import dev.theturkey.backbones.DatabaseCore.restreams
-import dev.theturkey.backbones.DatabaseCore.streamKeys
 import dev.theturkey.backbones.ome.OMEAPI
+import dev.theturkey.backbones.util.IdUtil
+import dev.theturkey.backbones.util.TimeUtil
 import org.ktorm.dsl.*
-import org.ktorm.entity.filter
-import org.ktorm.entity.find
-import org.ktorm.entity.toList
-import kotlin.text.insert
 
 object ChannelManager {
     private val CHANNEL_ID_REGEX: Regex = "^[0-9]{0,9}$".toRegex()
@@ -18,54 +13,123 @@ object ChannelManager {
         return id?.matches(CHANNEL_ID_REGEX) ?: false
     }
 
-    fun getChannel(id: Long): Channel? {
-        return DatabaseCore.DB.channels.find { it.id eq id }
+    fun getChannels(): List<Channel> {
+        return DatabaseCore.DB
+            .from(ChannelEntity)
+            .select()
+            .map {
+                Channel(it[ChannelEntity.id]!!, it[ChannelEntity.name]!!, it[ChannelEntity.created]!!)
+            }.toList()
     }
 
-    fun createChannel(channel: Channel) {
-        DatabaseCore.DB.insert(Channels) {
+    fun getChannel(id: Long): Channel? {
+        return DatabaseCore.DB
+            .from(ChannelEntity)
+            .select()
+            .where(ChannelEntity.id.eq(id))
+            .map {
+                Channel(it[ChannelEntity.id]!!, it[ChannelEntity.name]!!, it[ChannelEntity.created]!!)
+            }
+            .firstOrNull()
+    }
+
+    fun createChannel(channel: Channel): Long {
+        val channelId = DatabaseCore.DB.insert(ChannelEntity) {
             set(it.name, channel.name)
-            set(it.created, channel.created)
-        }
+            set(it.created, TimeUtil.nowStr())
+        }.toLong()
+
+        setChannelStreamKey(channelId, IdUtil.randomUID(32))
+
+        return channelId;
     }
 
     fun updateChannel(channel: Channel) {
-        DatabaseCore.DB.update(Channels) {
+        DatabaseCore.DB.update(ChannelEntity) {
             set(it.name, channel.name)
             where { it.id eq channel.id }
         }
     }
 
     fun deleteChannel(id: Long) {
-        DatabaseCore.DB.delete(Channels) { it.id eq id }
+        DatabaseCore.DB.delete(ChannelEntity) { it.id eq id }
     }
 
-    fun getChannelStreamKey(channelId: Long): String? {
-        return DatabaseCore.DB.streamKeys.find { it.channelId eq channelId }?.streamKey
+    fun getChannelStreamKey(channelId: Long): ChannelStreamKey? {
+        return DatabaseCore.DB.from(ChannelStreamKeyEntity)
+            .select()
+            .where(ChannelStreamKeyEntity.channelId.eq(channelId))
+            .map { ChannelStreamKey(it[ChannelStreamKeyEntity.streamKey]!!, it[ChannelStreamKeyEntity.channelId]!!) }
+            .firstOrNull()
     }
 
     fun setChannelStreamKey(channelId: Long, key: String?) {
-        DatabaseCore.DB.update(ChannelStreamKeys) {
+        DatabaseCore.DB.update(ChannelStreamKeyEntity) {
             set(it.streamKey, key)
             where { it.channelId eq channelId }
         }
     }
 
-    fun getChannelFromStreamKey(key: String): Long {
-        return DatabaseCore.DB.streamKeys.find { it.streamKey eq key }?.channelId ?: -1
+    fun getChannelFromStreamKey(key: String): Long? {
+        return DatabaseCore.DB.from(ChannelStreamKeyEntity)
+            .select()
+            .where(ChannelStreamKeyEntity.streamKey.eq(key))
+            .map { it[ChannelStreamKeyEntity.channelId] }
+            .firstOrNull()
     }
 
+    fun getRestreams(): List<Restream> {
+        return DatabaseCore.DB.from(RestreamEntity)
+            .select()
+            .map {
+                Restream(
+                    it[RestreamEntity.id]!!,
+                    it[RestreamEntity.channelId]!!,
+                    it[RestreamEntity.name]!!,
+                    it[RestreamEntity.active]!!,
+                    it[RestreamEntity.url]!!,
+                    it[RestreamEntity.streamKey],
+                )
+            }
+            .toList()
+    }
 
     fun getRestreamsForChannel(id: Long): List<Restream> {
-        return DatabaseCore.DB.restreams.filter { it.channelId eq id }.toList()
+        return DatabaseCore.DB.from(RestreamEntity)
+            .select()
+            .where(RestreamEntity.channelId.eq(id))
+            .map {
+                Restream(
+                    it[RestreamEntity.id]!!,
+                    it[RestreamEntity.channelId]!!,
+                    it[RestreamEntity.name]!!,
+                    it[RestreamEntity.active]!!,
+                    it[RestreamEntity.url]!!,
+                    it[RestreamEntity.streamKey],
+                )
+            }
+            .toList()
     }
 
     fun getRestream(id: Long): Restream? {
-        return DatabaseCore.DB.restreams.find { it.id eq id }
+        return DatabaseCore.DB.from(RestreamEntity)
+            .select()
+            .where(RestreamEntity.id.eq(id))
+            .map {
+                Restream(
+                    it[RestreamEntity.id]!!,
+                    it[RestreamEntity.channelId]!!,
+                    it[RestreamEntity.name]!!,
+                    it[RestreamEntity.active]!!,
+                    it[RestreamEntity.url]!!,
+                    it[RestreamEntity.streamKey],
+                )
+            }
+            .firstOrNull()
     }
 
     fun addRestreamsForChannel(restream: Restream) {
-        DatabaseCore.DB.insert(Restreams) {
+        DatabaseCore.DB.insert(RestreamEntity) {
             set(it.channelId, restream.channelId)
             set(it.name, restream.name)
             set(it.active, restream.active)
@@ -75,7 +139,7 @@ object ChannelManager {
     }
 
     fun updateRestream(restream: Restream) {
-        DatabaseCore.DB.update(Restreams) {
+        DatabaseCore.DB.update(RestreamEntity) {
             set(it.name, restream.name)
             set(it.active, restream.active)
             set(it.url, restream.url)
@@ -85,12 +149,13 @@ object ChannelManager {
     }
 
     fun deleteRestream(id: Long) {
-        DatabaseCore.DB.delete(Restreams) { it.id eq id }
+        DatabaseCore.DB.delete(RestreamEntity) { it.id eq id }
     }
 
+
     fun startRestreams() {
-        for (r in DatabaseCore.DB.restreams) {
-            if (!r.active)
+        for (r in getRestreams()) {
+            if (r.active)
                 continue
             if (!OMEAPI.startPushPublish(r))
                 println("Filed to start restream " + r.id + "!")
@@ -98,8 +163,8 @@ object ChannelManager {
     }
 
     fun stopRestreams() {
-        for (r in DatabaseCore.DB.restreams) {
-            if (!r.active)
+        for (r in getRestreams()) {
+            if (r.active)
                 continue
             if (!OMEAPI.stopPushPublish(r))
                 println("Filed to stop restream " + r.id + "!")

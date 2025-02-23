@@ -1,37 +1,39 @@
 package dev.theturkey.backbones.rest.endpoints
 
-import dev.theturkey.backbones.DatabaseCore
-import dev.theturkey.backbones.DatabaseCore.channels
 import dev.theturkey.backbones.channel.Channel
 import dev.theturkey.backbones.channel.ChannelManager
+import dev.theturkey.backbones.channel.ChannelStreamKey
 import dev.theturkey.backbones.channel.Restream
 import dev.theturkey.backbones.errorMsg
 import dev.theturkey.backbones.ome.OMEAPI
+import dev.theturkey.backbones.util.IdUtil
+import dev.theturkey.backbones.util.TimeUtil
 import jakarta.annotation.security.RolesAllowed
 import jakarta.ws.rs.*
 import jakarta.ws.rs.core.MediaType
 import jakarta.ws.rs.core.Response
 import kotlinx.serialization.json.Json
-import org.ktorm.entity.toList
 
 @Path("channel")
 class ChannelEndpoints {
-    private val jsonSer = Json { encodeDefaults = true }
+    private val jsonSer = Json { encodeDefaults = true; ignoreUnknownKeys = true }
     private val invalidChannelId = "Invalid channel Id!"
     private val channelIdsDoNotMatch = "Channel id in URL does not match body channel id!"
 
     @GET
     @Produces(MediaType.APPLICATION_JSON)
     fun getChannels(): Response {
-        val channels = DatabaseCore.DB.channels.toList()
+        val channels = ChannelManager.getChannels()
         return Response.ok().entity(jsonSer.encodeToString(channels)).build()
     }
 
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    fun createChannels(): Response {
-        val channels = DatabaseCore.DB.channels.toList()
-        return Response.ok().entity(jsonSer.encodeToString(channels)).build()
+    fun createChannels(json: String): Response {
+        val channel = Json.decodeFromString<Channel>(json)
+        val id = ChannelManager.createChannel(channel)
+        val newChannel = Channel(id, channel.name, TimeUtil.nowStr())
+        return Response.ok().entity(jsonSer.encodeToString(newChannel)).build()
     }
 
     @GET
@@ -42,7 +44,7 @@ class ChannelEndpoints {
             return Response.status(Response.Status.BAD_REQUEST).errorMsg(invalidChannelId)
         val channel = ChannelManager.getChannel(id.toLong()) ?: return Response.status(Response.Status.BAD_REQUEST)
             .errorMsg("Channel does not exist!")
-        return Response.ok(channel).build()
+        return Response.ok(jsonSer.encodeToString(channel)).build()
     }
 
     @Path("{id}")
@@ -53,7 +55,7 @@ class ChannelEndpoints {
         if (!ChannelManager.isValidId(id))
             return Response.status(Response.Status.BAD_REQUEST).errorMsg(invalidChannelId)
 
-        val updated: Channel = jsonSer.decodeFromString<Channel>(json)
+        val updated = jsonSer.decodeFromString<Channel>(json)
         if (updated.id != id.toLongOrNull())
             return Response.status(Response.Status.BAD_REQUEST).errorMsg(channelIdsDoNotMatch)
         ChannelManager.updateChannel(updated)
@@ -80,7 +82,8 @@ class ChannelEndpoints {
 
         val channel = ChannelManager.getChannel(id.toLong()) ?: return Response.status(Response.Status.BAD_REQUEST)
             .errorMsg("Channel does not exist!")
-        return Response.ok(ChannelManager.getChannelStreamKey(channel.id)).build()
+        val streamKey = ChannelManager.getChannelStreamKey(channel.id)
+        return Response.ok(jsonSer.encodeToString(streamKey)).build()
     }
 
     @PATCH
@@ -93,9 +96,9 @@ class ChannelEndpoints {
         val channel = ChannelManager.getChannel(id.toLong()) ?: return Response.status(Response.Status.BAD_REQUEST)
             .errorMsg("Channel does not exist!")
 
-        val key = "NEW_KEY"
+        val key = IdUtil.randomUID(32)
         ChannelManager.setChannelStreamKey(channel.id, key)
-        return Response.ok().build()
+        return Response.ok(jsonSer.encodeToString(ChannelStreamKey(key, channel.id))).build()
     }
 
     @Path("{id}/restreams")
@@ -112,7 +115,7 @@ class ChannelEndpoints {
     @Path("{id}/restreams")
     @POST
     @Produces(MediaType.APPLICATION_JSON)
-    fun addRestreams(@PathParam("id") channelId: String, json: String): Response {
+    fun addRestream(@PathParam("id") channelId: String, json: String): Response {
         if (!ChannelManager.isValidId(channelId))
             return Response.status(Response.Status.BAD_REQUEST).errorMsg(invalidChannelId)
 

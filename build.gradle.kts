@@ -21,6 +21,7 @@ dependencies {
     implementation("jakarta.activation:jakarta.activation-api:2.1.2")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("org.slf4j:slf4j-simple:2.0.7")
+    implementation("org.mariadb.jdbc:mariadb-java-client:3.1.4")
     implementation("org.ktorm:ktorm-core:4.1.1")
     testImplementation(kotlin("test"))
 }

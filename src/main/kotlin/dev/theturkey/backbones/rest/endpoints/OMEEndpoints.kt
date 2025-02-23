@@ -43,10 +43,8 @@ class OMEEndpoints {
 
         val parts = url.path.split("/".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
         val key = parts[1]
-        val channelId: Long = ChannelManager.getChannelFromStreamKey(key)
-
-        if (channelId == -1L)
-            return Response.status(Response.Status.BAD_REQUEST)
+        val channelId = ChannelManager.getChannelFromStreamKey(key)
+            ?: return Response.status(Response.Status.BAD_REQUEST)
                 .entity(OMEAPI.getOMEResponse(false, "Invalid stream key!")).build()
 
         val jsonObject = buildJsonObject {
@@ -55,7 +53,7 @@ class OMEEndpoints {
             put("new_url", url.resolve("/live/$channelId").toString())
         }
 
-        if (data.request.status.equals("opening"))
+        if (data.request.status == "opening")
             initStream(channelId)
         else
             endStream(channelId)
