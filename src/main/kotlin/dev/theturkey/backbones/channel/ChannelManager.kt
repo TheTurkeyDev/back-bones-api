@@ -155,7 +155,7 @@ object ChannelManager {
 
     fun startRestreams() {
         for (r in getRestreams()) {
-            if (r.active)
+            if (!r.active)
                 continue
             if (!OMEAPI.startPushPublish(r))
                 println("Filed to start restream " + r.id + "!")
@@ -164,7 +164,7 @@ object ChannelManager {
 
     fun stopRestreams() {
         for (r in getRestreams()) {
-            if (r.active)
+            if (!r.active)
                 continue
             if (!OMEAPI.stopPushPublish(r))
                 println("Filed to stop restream " + r.id + "!")

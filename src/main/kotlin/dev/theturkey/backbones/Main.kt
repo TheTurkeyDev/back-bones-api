@@ -1,5 +1,7 @@
 package dev.theturkey.backbones
 
+import dev.theturkey.backbones.channel.ChannelManager
+import dev.theturkey.backbones.ome.OMEAPI
 import dev.theturkey.backbones.rest.InternalRestServer
 import dev.theturkey.backbones.rest.RestServer
 import dev.theturkey.backbones.rest.endpoints.ErrorResponse
@@ -10,6 +12,18 @@ import java.net.URISyntaxException
 
 fun main() {
     start()
+
+    for (r in ChannelManager.getRestreams()) {
+        if (!r.active)
+            continue
+
+        val curr = OMEAPI.getCurrentPushPublish(r)
+        if(curr?.response?.isNotEmpty() == true)
+            continue
+
+        if (!OMEAPI.startPushPublish(r))
+            println("Filed to start restream " + r.id + "!")
+    }
 }
 
 fun start() {
