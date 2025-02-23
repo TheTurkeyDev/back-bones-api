@@ -47,11 +47,11 @@ class OMEEndpoints {
             ?: return Response.status(Response.Status.BAD_REQUEST)
                 .entity(OMEAPI.getOMEResponse(false, "Invalid stream key!")).build()
 
-        val jsonObject = buildJsonObject {
+        val jsonObject = Json.encodeToString(buildJsonObject {
             put("allowed", true)
             put("reason", "authorized")
             put("new_url", url.resolve("/live/$channelId").toString())
-        }
+        })
 
         if (data.request.status == "opening")
             initStream(channelId)
