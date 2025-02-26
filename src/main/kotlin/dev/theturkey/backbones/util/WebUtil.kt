@@ -43,13 +43,15 @@ object WebUtil {
         return null
     }
 
+    val json = Json { ignoreUnknownKeys = true }
+
     @OptIn(ExperimentalSerializationApi::class)
     inline fun <reified T> getResponseAsJson(response: HttpResponse<InputStream?>?): T? {
         val stream = if (response != null) getDecodedInputStream(response) else null
         try {
             if (stream == null)
                 return null
-            return Json.decodeFromStream<T>(stream)
+            return json.decodeFromStream<T>(stream)
         } catch (e: Exception) {
             println(e.message)
         }

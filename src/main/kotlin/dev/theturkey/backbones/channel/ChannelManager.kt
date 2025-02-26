@@ -2,6 +2,7 @@ package dev.theturkey.backbones.channel
 
 import dev.theturkey.backbones.DatabaseCore
 import dev.theturkey.backbones.ome.OMEAPI
+import dev.theturkey.backbones.util.EncryptUtil
 import dev.theturkey.backbones.util.IdUtil
 import dev.theturkey.backbones.util.TimeUtil
 import org.ktorm.dsl.*
@@ -34,12 +35,15 @@ object ChannelManager {
     }
 
     fun createChannel(channel: Channel): Long {
-        val channelId = DatabaseCore.DB.insert(ChannelEntity) {
+        val channelId = DatabaseCore.DB.insertAndGenerateKey(ChannelEntity) {
             set(it.name, channel.name)
             set(it.created, TimeUtil.nowStr())
-        }.toLong()
+        } as Long
 
-        setChannelStreamKey(channelId, IdUtil.randomUID(32))
+        DatabaseCore.DB.insert(ChannelStreamKeyEntity) {
+            set(it.channelId, channelId)
+            set(it.streamKey, IdUtil.randomUID(32))
+        }
 
         return channelId;
     }
@@ -88,7 +92,9 @@ object ChannelManager {
                     it[RestreamEntity.name]!!,
                     it[RestreamEntity.active]!!,
                     it[RestreamEntity.url]!!,
-                    it[RestreamEntity.streamKey],
+                    EncryptUtil.decrypt(it[RestreamEntity.streamKey]),
+                    it[RestreamEntity.videoTrack]!!,
+                    it[RestreamEntity.audioTrack]!!,
                 )
             }
             .toList()
@@ -105,7 +111,9 @@ object ChannelManager {
                     it[RestreamEntity.name]!!,
                     it[RestreamEntity.active]!!,
                     it[RestreamEntity.url]!!,
-                    it[RestreamEntity.streamKey],
+                    EncryptUtil.decrypt(it[RestreamEntity.streamKey]),
+                    it[RestreamEntity.videoTrack]!!,
+                    it[RestreamEntity.audioTrack]!!,
                 )
             }
             .toList()
@@ -122,20 +130,24 @@ object ChannelManager {
                     it[RestreamEntity.name]!!,
                     it[RestreamEntity.active]!!,
                     it[RestreamEntity.url]!!,
-                    it[RestreamEntity.streamKey],
+                    EncryptUtil.decrypt(it[RestreamEntity.streamKey]),
+                    it[RestreamEntity.videoTrack]!!,
+                    it[RestreamEntity.audioTrack]!!,
                 )
             }
             .firstOrNull()
     }
 
-    fun addRestreamsForChannel(restream: Restream) {
-        DatabaseCore.DB.insert(RestreamEntity) {
+    fun addRestreamsForChannel(restream: Restream): Long {
+        return DatabaseCore.DB.insertAndGenerateKey(RestreamEntity) {
             set(it.channelId, restream.channelId)
             set(it.name, restream.name)
             set(it.active, restream.active)
             set(it.url, restream.url)
-            set(it.streamKey, restream.streamKey)
-        }
+            set(it.streamKey, EncryptUtil.encrypt(restream.streamKey))
+            set(it.videoTrack, restream.videoTrack)
+            set(it.audioTrack, restream.audioTrack)
+        } as Long
     }
 
     fun updateRestream(restream: Restream) {
@@ -143,7 +155,9 @@ object ChannelManager {
             set(it.name, restream.name)
             set(it.active, restream.active)
             set(it.url, restream.url)
-            set(it.streamKey, restream.streamKey)
+            set(it.streamKey, EncryptUtil.encrypt(restream.streamKey))
+            set(it.videoTrack, restream.videoTrack)
+            set(it.audioTrack, restream.audioTrack)
             where { it.id eq restream.id }
         }
     }

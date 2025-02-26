@@ -12,4 +12,6 @@ object RestreamEntity : Table<Nothing>("restreams") {
     var active = boolean("active")
     var url = varchar("url")
     var streamKey = varchar("stream_key")
+    var videoTrack = varchar("video_track")
+    var audioTrack = varchar("audio_track")
 }

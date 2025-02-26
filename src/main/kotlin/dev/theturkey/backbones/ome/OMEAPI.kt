@@ -61,7 +61,10 @@ object OMEAPI {
         if (responseObject?.response?.isEmpty() == true) {
             val postData = StartPushRequest(
                 "push_" + restreamData.channelId + "_" + restreamData.id,
-                RequestStreamData(restreamData.channelId.toString(), null),
+                RequestStreamData(
+                    restreamData.channelId.toString(),
+                    listOf(restreamData.videoTrack, restreamData.audioTrack)
+                ),
                 "rtmp",
                 baseUrl,
                 restreamData.streamKey
@@ -90,5 +93,16 @@ object OMEAPI {
             return statusCode == 200
         }
         return false
+    }
+
+    fun getOutputProfileInformation(profile: String): OutputProfileInformationResponse? {
+        val request = buildReq("/v1/vhosts/default/apps/live/outputProfiles/$profile", "GET")
+        val response = makeHTTPCall(request)
+        val statusCode = response?.statusCode() ?: -1
+        if (statusCode != 200) {
+            println("Received a response code that wasn't a 200! $statusCode")
+            return null
+        }
+        return WebUtil.getResponseAsJson<OutputProfileInformationResponse>(response)
     }
 }

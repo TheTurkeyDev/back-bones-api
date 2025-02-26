@@ -18,7 +18,7 @@ fun main() {
             continue
 
         val curr = OMEAPI.getCurrentPushPublish(r)
-        if(curr?.response?.isNotEmpty() == true)
+        if (curr?.response?.isNotEmpty() == true)
             continue
 
         if (!OMEAPI.startPushPublish(r))
